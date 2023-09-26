@@ -6,153 +6,40 @@ console.log(scoreEl);
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-class Boundary {
-    static width = 40;
-    static height = 40;
-    constructor({position, image}) {
-        this.position = position;
-        this.width = 40;
-        this.height = 40;
-        this.image = image;
-    }
-
-    draw() {
-        //c.fillStyle = 'blue';
-        //c.fillRect(this.position.x, this.position.y, this.width, this.height);
-        c.drawImage(this.image, this.position.x, this.position.y);
-    }
-}
-
-class Player {
-    constructor({position, velocity}) {
-        this.position = position;
-        this.velocity = velocity;
-        this.radius = 15;
-        this.radians = 0.75;
-        this.openRate = 0.12;
-        this.rotation = 0;
-    }
-
-    draw() {
-        c.save();
-        c.translate(this.position.x, this.position.y);
-        c.rotate(this.rotation);
-        c.translate(-this.position.x, -this.position.y);
-        c.beginPath();
-        c.arc(this.position.x, this.position.y, this.radius, this.radians, Math.PI * 2 - this.radians);
-        c.lineTo(this.position.x, this.position.y)
-        c.fillStyle = 'yellow';
-        c.fill();
-        c.closePath();
-        c.restore();
-    }
-
-    update() {
-        this.draw();
-        this.position.x += this.velocity.x;
-        this.position.y += this.velocity.y;
-
-        if (this.radians < 0 || this.radians > 0.75) {
-            this.openRate = -this.openRate;
-
-        }
-        this.radians += this.openRate;
-    }
-}
-
-class Ghost {
-    static speed = 2;
-    constructor({position, velocity, color = 'red'}) {
-        this.position = position;
-        this.velocity = velocity;
-        this.radius = 15;
-        this.color = color;
-        this.xposition = [];
-        this.yposition = [];
-        this.speed = 2;
-        this.scared = false;
-    }
-
-    draw() {
-        c.beginPath();
-        c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-        c.fillStyle = this.scared? 'blue' : this.color;
-        c.fill();
-        c.closePath();
-    }
-
-    update() {
-        this.draw();
-        this.position.x += this.velocity.x;
-        this.position.y += this.velocity.y;
-    }
-}
-
-class Pellet {
-    constructor({position, velocity}) {
-        this.position = position;
-        this.radius = 3;
-    }
-
-    draw() {
-        c.beginPath();
-        c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-        c.fillStyle = 'white';
-        c.fill();
-        c.closePath();
-    }
-
-}
-
-class PowerUp {
-    constructor({position}) {
-        this.position = position;
-        this.radius = 8;
-    }
-
-    draw() {
-        c.beginPath();
-        c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-        c.fillStyle = 'white';
-        c.fill();
-        c.closePath();
-    }
-
-}
-
 const pellets = [];
 
 const boundaries = [];
 
 const powerUps = [];
+let redGhostXPosition = [];
+let redGhostYPosition = [];
+let pinkGhostXPosition =[];
+let pinkGhostYPosition = [];   
+
+function createGhost({color, column, row}) {
+    return new Ghost({
+        c,
+        position: {
+            x: Boundary.width * column + Boundary.width/2,
+            y: Boundary.height * row + Boundary.height/2,
+        },
+
+        velocity:{
+            x: Ghost.speed,
+            y: 0,
+        },
+
+        color: color,
+        createTime: performance.now()
+    })
+}
 
 const ghosts = [
-    new Ghost({
-        position: {
-            x: Boundary.width * 6 + Boundary.width/2,
-            y: Boundary.height * 7 + Boundary.height/2,
-        },
-
-        velocity:{
-            x: Ghost.speed,
-            y: 0,
-        },
-    }),
-
-    new Ghost({
-        position: {
-            x: Boundary.width * 6 + Boundary.width/2,
-            y: Boundary.height * 11+ Boundary.height/2,
-        },
-
-        velocity:{
-            x: Ghost.speed,
-            y: 0,
-        },
-        color: 'pink',
-    })
+    createGhost({column: 6, row: 7}),
+    createGhost({color: 'pink', column: 6, row: 11})
 ]
-//console.log(ghosts);
+
+
 const player = new Player({
     position: {
         x: Boundary.width + Boundary.width/2,
@@ -168,22 +55,22 @@ const keys = {
     w: {
         pressed: false,
         direction: 'y',
-        velocity: -5,
+        velocity: -4,
     },
     a: {
         pressed: false,
         direction: 'x',
-        velocity: -5,
+        velocity: -4,
     },
     s: {
         pressed: false,
         direction: 'y',
-        velocity: 5,
+        velocity: 4,
     },
     d: {
         pressed: false,
         direction: 'x',
-        velocity: 5,
+        velocity: 4,
     },
 }
 
@@ -308,6 +195,20 @@ function distance({ghost, player}) {
     )
 }
 
+function checkGhostGetStuck({ghost, potentialPathways, shortestIndex}) {
+    
+        if (ghost.position.x + potentialPathways[shortestIndex].x == ghost.xposition[ghost.xposition.length-2] && 
+            ghost.position.y + potentialPathways[shortestIndex].y == ghost.yposition[ghost.yposition.length-2])
+            {
+                return true;
+            }
+        else {
+            return false;
+        }}
+    
+
+
+
 let animationId 
 function animate() {
     animationId = requestAnimationFrame(animate);
@@ -361,11 +262,29 @@ function animate() {
         if (Math.hypot(ghost.position.x - player.position.x, ghost.position.y - player.position.y) < ghost.radius + player.radius) 
         {
             if (ghost.scared) {
-                ghosts.splice(i, 1)
+                ghosts.splice(i, 1);
+                if (ghost.color == 'red') {
+                    setTimeout(() =>{ghosts.push(createGhost(
+                        {color: 'red',
+                        column: 6,
+                        row: 7}
+                    ))}, 5000)
+                }
+                else {
+                    setTimeout(() =>{ghosts.push(createGhost(
+                        {color: 'pink',
+                        column: 6,
+                        row: 11}
+                    ))}, 5000)
+                }
             }
             else {
+                
+                if (!ghost.justSpawn) {
+                   
                 cancelAnimationFrame(animationId);
                 console.log('You lose');
+                }
             }
         }
     }
@@ -388,11 +307,11 @@ function animate() {
             powerUps.splice(i, 1);
             ghosts.forEach(ghost => {
                 ghost.scared = true;
-
+                setTimeout(() => {ghost.almostNotScared = true}, 4000);
                 setTimeout(() => {
                     ghost.scared = false;
-
-                }, 5000)
+                    ghost.almostNotScared = false;
+                }, 6000)
             })
             
         }
@@ -441,10 +360,20 @@ function animate() {
         },
     ]
 
-    ghosts.forEach(ghost => {
 
+
+    ghosts.forEach(ghost => {
+        
         ghost.update();
         
+        if (ghost.color == 'red') {
+            redGhostXPosition.push(ghost.position.x);
+            redGhostYPosition.push(ghost.position.y);
+        }
+        else {
+            pinkGhostXPosition.push(ghost.position.x);
+            pinkGhostYPosition.push(ghost.position.y);
+        }
         const collisions = [];
         boundaries.forEach(boundary => {
             directionObj.forEach(object => 
@@ -485,7 +414,8 @@ function animate() {
 
         let shortestDistance = 0;
         let shortestIndex = null;
-        
+            
+               
         for (let i = 0; i< potentialPathways.length; i++){
             if (!ghost.scared)
                 {if (potentialPathways[i].distance <= shortestDistance || shortestDistance == 0) {
@@ -501,11 +431,15 @@ function animate() {
                 }
             }
         } 
-
         
-        if (ghost.position.x + potentialPathways[shortestIndex].x == ghost.xposition[ghost.xposition.length-2] && 
+        let isGhostStuck = false;
+        //console.log(checkGhostGetStuck({ghost, potentialPathways, shortestIndex}))
+        
 
-            ghost.position.y + potentialPathways[shortestIndex].y == ghost.yposition[ghost.yposition.length-2] )
+        isGhostStuck = checkGhostGetStuck({ghost, potentialPathways, shortestIndex});
+        // console.log(ghost.color, isGhostStuck)
+        if (isGhostStuck ||
+            (redGhostXPosition[redGhostXPosition.length-1] == pinkGhostXPosition[pinkGhostXPosition.length-1] && redGhostYPosition[redGhostYPosition.length-1] == pinkGhostYPosition[pinkGhostYPosition.length-1]))
 
             {
                 if (shortestIndex == 0) {
@@ -527,14 +461,10 @@ function animate() {
             ghost.velocity.x = potentialPathways[shortestIndex].x;
             ghost.velocity.y = potentialPathways[shortestIndex].y;
             ghost.xposition.push(ghost.position.x + ghost.velocity.x);
-            ghost.yposition.push(ghost.position.y + ghost.velocity.y);}
-        
-
-
-        console.log(`${ghost.color} ghost's new x velocity is ${ghost.velocity.x}`)
-        console.log(`${ghost.color} ghost's new y velocity is ${ghost.velocity.y}`)
-
+            ghost.yposition.push(ghost.position.y + ghost.velocity.y);
         }
+        
+       }
 
     )
     if (player.velocity.x > 0) {
