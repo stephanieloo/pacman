@@ -89,7 +89,7 @@ const map = [
     ['|', '.', '[', ']', '.', '.', '.', '[', ']', '.', '|'],
     ['|', '.', '.', '.', '.', '^', '.', '.', '.', '.', '|'],
     ['|', '.', 'b', '.', '[', '5', ']', '.', 'b', '.', '|'],   
-    ['|', '.', '.', '.', '.', '.', '.', '.', '.', 'p', '|'],
+    ['|', 'p', '.', '.', '.', '.', '.', '.', '.', 'p', '|'],
     ['4', '-', '-', '-', '-', '-', '-', '-', '-', '-', '3'],
 ]
 
@@ -118,6 +118,40 @@ const BoundaryImage = {
     '+': './img/pipeCross.png',
 
 };
+
+const audio = {
+    'normal': './audio/pacman_chomp.wav',
+    'die': './audio/pacman_death.wav',
+    'eatPowerUp': './audio/pacman_eatpower.wav',
+}
+
+const gameOverSound = new Audio ('./audio/pacman_death.wav');
+const eatPowerSound = new Audio ('./audio/pacman_eatpower.wav');
+const eatGhostSound = new Audio ('./audio/pacman_eatghost.wav')
+const backgroundSound = new Audio('./audio/pacman_chomp.wav');
+
+function playBackgroundSound() {
+    backgroundSound.currentTime = 0;
+    backgroundSound.play();
+}
+const intervalID = setInterval(()=> playBackgroundSound(), 300);
+function playGameOverSound() {
+    gameOverSound.currentTime = 0;
+    clearInterval(intervalID);
+    gameOverSound.play();
+}
+
+function playEatPowerSound() {
+    eatPowerSound.currentTime = 0;
+    backgroundSound.pause();
+    eatPowerSound.play();
+}
+
+function playEatGhostSound() {
+    eatGhostSound.currentTime = 0;
+    backgroundSound.pause();
+    eatGhostSound.play();
+}
 
 function createBoundaryImage(symbol, i, j) {
     boundaries.push(
@@ -189,12 +223,14 @@ function circleCollideWithRectangle({
     )
 }
 
+//calculate distance between ghost and player
 function distance({ghost, player}) {
     return (
         Math.sqrt((ghost.position.y + ghost.velocity.y -player.position.y)**2 + ((ghost.position.x + ghost.velocity.x - player.position.x))**2)
     )
 }
 
+//check ghost is stuck by checking if ghost is trying to go to the previous position 
 function checkGhostGetStuck({ghost, potentialPathways, shortestIndex}) {
     
         if (ghost.position.x + potentialPathways[shortestIndex].x == ghost.xposition[ghost.xposition.length-2] && 
@@ -212,6 +248,7 @@ function checkGhostGetStuck({ghost, potentialPathways, shortestIndex}) {
 let animationId 
 function animate() {
     animationId = requestAnimationFrame(animate);
+    
     c.clearRect(0, 0, canvas.width, canvas.height);
     //Detect collision between player and boundaries
     for (const key in keys) {
@@ -262,7 +299,9 @@ function animate() {
         if (Math.hypot(ghost.position.x - player.position.x, ghost.position.y - player.position.y) < ghost.radius + player.radius) 
         {
             if (ghost.scared) {
+                playEatGhostSound();
                 ghosts.splice(i, 1);
+                //ghosts spawn after 5s
                 if (ghost.color == 'red') {
                     setTimeout(() =>{ghosts.push(createGhost(
                         {color: 'red',
@@ -281,9 +320,9 @@ function animate() {
             else {
                 
                 if (!ghost.justSpawn) {
-                   
-                cancelAnimationFrame(animationId);
-                console.log('You lose');
+                    playGameOverSound();
+                    cancelAnimationFrame(animationId);
+                    console.log('You lose');
                 }
             }
         }
@@ -305,6 +344,7 @@ function animate() {
         if (Math.hypot(powerup.position.x - player.position.x, powerup.position.y - player.position.y) < powerup.radius + player.radius) 
         {
             powerUps.splice(i, 1);
+            playEatPowerSound();
             ghosts.forEach(ghost => {
                 ghost.scared = true;
                 setTimeout(() => {ghost.almostNotScared = true}, 4000);
@@ -366,6 +406,7 @@ function animate() {
         
         ghost.update();
         
+        // records all ghost positions
         if (ghost.color == 'red') {
             redGhostXPosition.push(ghost.position.x);
             redGhostYPosition.push(ghost.position.y);
@@ -375,6 +416,8 @@ function animate() {
             pinkGhostYPosition.push(ghost.position.y);
         }
         const collisions = [];
+
+        //if collisions array store where ghost can collide into
         boundaries.forEach(boundary => {
             directionObj.forEach(object => 
                 {
@@ -398,7 +441,8 @@ function animate() {
             }
         )
         const potentialPathways = [];
-    
+            
+        //potential pathways store where the ghost can move into
         directionObj.forEach(obj => {
             if (!collisions.includes(obj.direction)) {
                 const calculatedDistance = distance({
@@ -415,7 +459,7 @@ function animate() {
         let shortestDistance = 0;
         let shortestIndex = null;
             
-               
+       //if ghost is not scared, it should always take the shortest distance to pacman
         for (let i = 0; i< potentialPathways.length; i++){
             if (!ghost.scared)
                 {if (potentialPathways[i].distance <= shortestDistance || shortestDistance == 0) {
@@ -423,6 +467,7 @@ function animate() {
 
                     shortestIndex = i;
                 }}
+            // if ghost is scared, it should take the longest distance to pacman
             else {
                 if (potentialPathways[i].distance >= shortestDistance || shortestDistance == 0) {
                     shortestDistance = potentialPathways[i].distance;
@@ -433,11 +478,12 @@ function animate() {
         } 
         
         let isGhostStuck = false;
-        //console.log(checkGhostGetStuck({ghost, potentialPathways, shortestIndex}))
-        
 
+        
+        // check if ghost is stuck
         isGhostStuck = checkGhostGetStuck({ghost, potentialPathways, shortestIndex});
-        // console.log(ghost.color, isGhostStuck)
+        
+        // if ghost is stuck or if red and pink ghost were in the same position, it should just take another route
         if (isGhostStuck ||
             (redGhostXPosition[redGhostXPosition.length-1] == pinkGhostXPosition[pinkGhostXPosition.length-1] && redGhostYPosition[redGhostYPosition.length-1] == pinkGhostYPosition[pinkGhostYPosition.length-1]))
 
